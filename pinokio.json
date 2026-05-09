@@ -1,0 +1,20 @@
+{
+  "title": "Llama GUI",
+  "description": "A lightweight local launcher and control panel for llama.cpp.",
+  "icon": "icon.svg",
+  "links": [
+    {
+      "title": "Project",
+      "links": [
+        {
+          "title": "GitHub",
+          "value": "https://github.com/thomas9120/LLama-GUI"
+        },
+        {
+          "title": "llama.cpp",
+          "value": "https://github.com/ggml-org/llama.cpp"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Llama GUI">
+  <rect width="128" height="128" rx="24" fill="#1a1b26"/>
+  <path d="M38 86V39c0-10 8-18 18-18h16c10 0 18 8 18 18v47" fill="none" stroke="#7aa2f7" stroke-width="9" stroke-linecap="round"/>
+  <path d="M46 63h36M46 83h36" stroke="#9ece6a" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="54" cy="43" r="5" fill="#c0caf5"/>
+  <circle cx="74" cy="43" r="5" fill="#c0caf5"/>
+  <path d="M58 103h12c16 0 29-13 29-29V58" fill="none" stroke="#bb9af7" stroke-width="9" stroke-linecap="round"/>
+</svg>
