@@ -6,7 +6,7 @@ The launcher keeps Pinokio scripts at this repository root and clones the Llama 
 
 ## Use
 
-1. Open this launcher in Pinokio.
+1. Open this launcher in Pinokio. Or go here: https://beta.pinokio.co/apps/github-com-thomas9120-llama-gui-pinokio
 2. Click **Install** to clone Llama GUI and install Python dependencies.
 3. Click **Start** to run the local web UI.
 4. Click **Open Web UI** after the server starts.
