@@ -1,0 +1,278 @@
+diff --git a/server.py b/server.py
+index 4c8fb5a..86b5c3d 100644
+--- a/server.py
++++ b/server.py
+@@ -225,6 +225,8 @@ remote_tunnel_state = {
+     "message": "Remote tunnel is not running.",
+     "log": "",
+ }
++cleanup_lock = threading.Lock()
++cleanup_done = False
+ 
+ 
+ def is_process_running():
+@@ -1071,8 +1073,14 @@ def shutdown_gui_server():
+     server = gui_server
+     if server is None:
+         return False
+-    stop_remote_tunnel()
+-    stop_process()
++    request_gui_server_shutdown()
++    return True
++
++
++def request_gui_server_shutdown():
++    server = gui_server
++    if server is None:
++        return False
+     threading.Thread(target=server.shutdown, daemon=True).start()
+     return True
+ 
+@@ -1080,43 +1088,46 @@ def shutdown_gui_server():
+ def restart_gui_server():
+     server = gui_server
+     if server is None:
+-        return False
+-    stop_remote_tunnel()
+-    stop_process()
+-    restart_script = str(BASE_DIR / "server.py")
++        return {
++            "restarting": False,
++            "shutdown": False,
++            "requires_pinokio_start": True,
++            "message": "Llama GUI is not running.",
++        }
++    request_gui_server_shutdown()
++    return {
++        "restarting": False,
++        "shutdown": True,
++        "requires_pinokio_start": True,
++        "message": "Llama GUI is stopping. Start it again from Pinokio to complete the restart.",
++    }
+ 
+-    def _restart():
+-        try:
+-            time.sleep(2.5)
+-            for i in range(10):
+-                try:
+-                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+-                    sock.bind(("127.0.0.1", 5240))
+-                    sock.close()
+-                    break
+-                except OSError:
+-                    if i < 9:
+-                        time.sleep(0.5)
+-                    else:
+-                        print("WARNING: Port 5240 still in use after waiting, attempting restart anyway")
+-            subprocess.Popen(
+-                [sys.executable, restart_script],
+-                cwd=str(BASE_DIR),
+-                creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+-                if sys.platform == "win32"
+-                else 0,
+-            )
+-            print("Restarting Llama GUI...")
+-        except Exception as e:
+-            print(f"ERROR: Failed to restart server: {e}")
+-            import traceback
+-            traceback.print_exc()
++
++def cleanup_gui_runtime():
++    global cleanup_done, gui_server
++    with cleanup_lock:
++        if cleanup_done:
+             return
+-        os._exit(0)
++        cleanup_done = True
++        stop_remote_tunnel()
++        stop_process()
++        if gui_server is not None:
++            gui_server.server_close()
++            gui_server = None
+ 
+-    threading.Thread(target=_restart, daemon=False).start()
+-    threading.Thread(target=server.shutdown, daemon=True).start()
+-    return True
++
++def install_signal_handlers():
++    def _handle_signal(signum, frame):
++        request_gui_server_shutdown()
++
++    for sig_name in ("SIGINT", "SIGTERM", "SIGBREAK"):
++        sig = getattr(signal, sig_name, None)
++        if sig is None:
++            continue
++        try:
++            signal.signal(sig, _handle_signal)
++        except (OSError, ValueError):
++            pass
+ 
+ 
+ def remove_llama_files():
+@@ -1448,6 +1459,40 @@ def update_app_from_git():
+     }
+ 
+ 
++def get_ui_asset_version():
++    git_res = run_git(["rev-parse", "--short=12", "HEAD"])
++    if git_res.returncode == 0 and git_res.stdout.strip():
++        return git_res.stdout.strip()
++
++    latest_mtime = 0
++    for rel_path in (
++        "ui/index.html",
++        "ui/css/tokens.css",
++        "ui/css/style.css",
++        "ui/js/flags.js",
++        "ui/js/manager.js",
++        "ui/js/presets.js",
++        "ui/js/app.js",
++    ):
++        path = BASE_DIR / rel_path
++        try:
++            latest_mtime = max(latest_mtime, int(path.stat().st_mtime))
++        except OSError:
++            pass
++    return str(latest_mtime or int(time.time()))
++
++
++def version_ui_asset_urls(html):
++    version = get_ui_asset_version()
++
++    def _replace(match):
++        attr = match.group(1)
++        asset_path = match.group(2).split("?", 1)[0]
++        return f'{attr}="{asset_path}?v={version}"'
++
++    return re.sub(r'(href|src)="(/(?:css|js)/[^"?#]+(?:\?[^"#]*)?)"', _replace, html)
++
++
+ def open_folder_in_file_manager(target):
+     if CURRENT_PLATFORM == "win32":
+         os.startfile(str(target))
+@@ -1826,12 +1871,28 @@ class Handler(http.server.SimpleHTTPRequestHandler):
+         self.send_header("Access-Control-Allow-Headers", "Content-Type")
+         self.end_headers()
+ 
+-    def send_json(self, data, status=200):
++    def send_json(self, data, status=200, headers=None):
+         body = json.dumps(data).encode()
+         self.send_response(status)
+         self.send_header("Content-Type", "application/json")
+         self.send_header("Content-Length", str(len(body)))
+         self.send_header("Access-Control-Allow-Origin", self.get_access_control_origin())
++        for name, value in (headers or {}).items():
++            self.send_header(name, value)
++        self.end_headers()
++        self.wfile.write(body)
++
++    def send_versioned_index(self):
++        index_path = UI_DIR / "index.html"
++        try:
++            html = index_path.read_text(encoding="utf-8")
++        except OSError:
++            self.send_error(404, "index.html not found")
++            return
++        body = version_ui_asset_urls(html).encode("utf-8")
++        self.send_response(200)
++        self.send_header("Content-Type", "text/html; charset=utf-8")
++        self.send_header("Content-Length", str(len(body)))
+         self.end_headers()
+         self.wfile.write(body)
+ 
+@@ -2007,7 +2068,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
+             return
+ 
+         if path == "/" or path == "/index.html":
+-            super().do_GET()
++            self.send_versioned_index()
+             return
+ 
+         if path.startswith("/api/") and not self.is_safe_request_origin():
+@@ -2294,8 +2355,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
+             return
+ 
+         if path == "/api/restart":
+-            restarting = restart_gui_server()
+-            self.send_json({"restarting": restarting})
++            self.send_json(restart_gui_server())
+             return
+ 
+         if path == "/api/cleanup-llama":
+@@ -2312,10 +2372,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
+         if path == "/api/app-update":
+             try:
+                 result = update_app_from_git()
++                headers = {}
++                if result.get("updated"):
++                    headers["Clear-Site-Data"] = '"cache"'
+                 if result.get("error"):
+-                    self.send_json(result, 400)
++                    self.send_json(result, 400, headers=headers)
+                 else:
+-                    self.send_json(result)
++                    self.send_json(result, headers=headers)
+             except Exception as e:
+                 self.send_json({"error": str(e)}, 500)
+             return
+@@ -2450,18 +2513,15 @@ def main():
+             print(f"ERROR: Could not start server on port {port}: {e}")
+         sys.exit(1)
+ 
++    install_signal_handlers()
+     print(f"Llama GUI running at http://127.0.0.1:{port}")
+     print("Press Ctrl+C to stop the server.")
+     try:
+         gui_server.serve_forever()
+     except KeyboardInterrupt:
+-        pass
++        request_gui_server_shutdown()
+     finally:
+-        stop_remote_tunnel()
+-        stop_process()
+-        if gui_server is not None:
+-            gui_server.server_close()
+-            gui_server = None
++        cleanup_gui_runtime()
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/ui/js/manager.js b/ui/js/manager.js
+index 0462d34..276ced0 100644
+--- a/ui/js/manager.js
++++ b/ui/js/manager.js
+@@ -332,7 +332,11 @@ async function restartPythonServerAndReload(options = {}) {
+     showStatusFn("info", options.restartingMessage || "Restarting Python server...");
+ 
+     try {
+-        await fetchJson("/api/restart", { method: "POST" });
++        const result = await fetchJson("/api/restart", { method: "POST" });
++        if (result.requires_pinokio_start) {
++            showStatusFn("warning", options.manualRestartMessage || result.message || "Llama GUI is stopping. Start it again from Pinokio to complete the restart.");
++            return;
++        }
+         showStatusFn("info", options.reconnectingMessage || "Python server is restarting. Reconnecting...");
+         const ready = await waitForServerReady(30, 1000);
+         if (ready) {
+@@ -350,12 +354,7 @@ async function restartPythonServerAndReload(options = {}) {
+ }
+ 
+ function reloadAppWithCacheBust() {
+-    const url = new URL(window.location.href);
+-    url.pathname = "/";
+-    url.search = "";
+-    url.hash = "";
+-    url.searchParams.set("appReload", Date.now().toString());
+-    window.location.replace(url.toString());
++    window.location.replace("/?appReload=" + Date.now().toString());
+ }
+ 
+ async function waitForServerReady(maxRetries, intervalMs) {
+@@ -616,6 +615,7 @@ async function updateAppFromGitHub() {
+                     reconnectingMessage: "Llama GUI is restarting. Reconnecting...",
+                     successMessage: "Llama GUI restarted. Loading the updated interface...",
+                     timeoutMessage: "Llama GUI updated, but the server did not become ready in time. Try reloading manually.",
++                    manualRestartMessage: "Llama GUI updated. The server is stopping now; start it again from Pinokio to load the updated interface.",
+                     failurePrefix: "App updated, but restart failed: ",
+                 });
+                 return;

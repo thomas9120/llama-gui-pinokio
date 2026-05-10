@@ -14,6 +14,12 @@ module.exports = {
       }
     },
     {
+      method: "script.start",
+      params: {
+        uri: "patch.js"
+      }
+    },
+    {
       method: "shell.run",
       params: {
         venv: "../env",
