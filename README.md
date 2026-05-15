@@ -28,6 +28,17 @@ http://127.0.0.1:5240
 
 Reset is intentionally a full launcher reset. It removes any Llama GUI data stored under `app/`, including downloaded `llama.cpp` files, models, presets, and local config.
 
+## Compatibility Patch
+
+During install and update, the launcher applies a small Pinokio compatibility patch to the cloned Llama GUI app:
+
+- Modern Llama GUI layouts with `backend/services/lifecycle.py` use `patches/pinokio-modern.patch`.
+- Older single-file layouts use the legacy `patches/lifecycle-cache.patch`.
+
+The modern patch keeps `python server.py` as the startup command, but changes the in-app restart flow to stop the Pinokio-managed process and ask the user to start it again from Pinokio. This avoids spawning a detached Python server outside Pinokio's process supervision after an app update or manual restart.
+
+The Update action reverses the compatibility patch before pulling Llama GUI changes, then reapplies the appropriate patch afterward. This keeps the cloned app updateable even though the launcher needs a small Pinokio-specific runtime behavior change.
+
 ## API
 
 Llama GUI exposes its own local HTTP API through the web server on port `5240`. The app also launches `llama-server`, which provides OpenAI-compatible endpoints when a model is running.
