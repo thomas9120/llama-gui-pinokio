@@ -39,6 +39,14 @@ The modern patch keeps `python server.py` as the startup command, but changes th
 
 The Update action reverses the compatibility patch before pulling Llama GUI changes, then reapplies the appropriate patch afterward. This keeps the cloned app updateable even though the launcher needs a small Pinokio-specific runtime behavior change.
 
+To check whether this launcher is compatible with a local Llama GUI checkout, run:
+
+```bash
+node scripts/check-app-compat.js path/to/LLama-GUI
+```
+
+The checker verifies the modern backend lifecycle layout, the frontend flag-core modules, `ui/index.html` script loading, and whether `patches/pinokio-modern.patch` applies cleanly or is already applied.
+
 ## API
 
 Llama GUI exposes its own local HTTP API through the web server on port `5240`. The app also launches `llama-server`, which provides OpenAI-compatible endpoints when a model is running.
@@ -76,3 +84,4 @@ console.log(await response.json())
 - The launcher does not duplicate `llama.cpp` install logic.
 - The Llama GUI **Install** tab is the source of truth for backend selection and binary downloads.
 - Llama GUI currently binds to fixed port `5240`; stop any existing Llama GUI process before starting this launcher.
+- Frontend-only internal refactors in Llama GUI, such as the `flag-core.js` / `config-flags-ui.js` split, should remain compatible as long as `ui/index.html` loads the scripts and `python server.py` remains the startup entrypoint.
