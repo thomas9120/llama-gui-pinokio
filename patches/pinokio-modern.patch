@@ -1,0 +1,103 @@
+diff --git a/backend/routes/lifecycle.py b/backend/routes/lifecycle.py
+--- a/backend/routes/lifecycle.py
++++ b/backend/routes/lifecycle.py
+@@ -9,8 +9,11 @@ def post_shutdown(request, response, ctx):
+ 
+ 
+ def post_restart(request, response, ctx):
+-    restarting = lifecycle_service.restart_gui_server(ctx)
+-    response.json({"restarting": restarting})
++    result = lifecycle_service.restart_gui_server(ctx)
++    if isinstance(result, dict):
++        response.json(result)
++    else:
++        response.json({"restarting": result})
+ 
+ 
+ def post_open_folder(request, response, ctx):
+diff --git a/backend/services/lifecycle.py b/backend/services/lifecycle.py
+--- a/backend/services/lifecycle.py
++++ b/backend/services/lifecycle.py
+@@ -66,44 +66,20 @@ def _wait_for_port_release(gui_host, gui_port, startup_delay, wait_attempts, wai
+ def restart_gui_server(ctx):
+     server = ctx.state.gui_server
+     if server is None:
+-        return False
+-
+-    stop_runtime_services(ctx)
+-    restart_script = str(ctx.paths.root / "server.py")
+-    gui_host = ctx.config.gui_host
+-    gui_port = ctx.config.gui_port
+-
+-    def _restart():
+-        try:
+-            port_free = _wait_for_port_release(
+-                gui_host,
+-                gui_port,
+-                RESTART_STARTUP_DELAY_SECONDS,
+-                RESTART_PORT_WAIT_ATTEMPTS,
+-                RESTART_PORT_WAIT_SECONDS,
+-            )
+-            if not port_free:
+-                print(f"WARNING: Port {gui_port} still in use after waiting, attempting restart anyway")
+-
+-            subprocess.Popen(
+-                [sys.executable, restart_script],
+-                cwd=str(ctx.paths.root),
+-                creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+-                if sys.platform == "win32"
+-                else 0,
+-            )
+-            print("Restarting Llama GUI...")
+-        except Exception as e:
+-            print(f"ERROR: Failed to restart server: {e}")
+-            import traceback
+-
+-            traceback.print_exc()
+-            return
+-        os._exit(0)
+-
+-    threading.Thread(target=_restart, daemon=False).start()
+-    threading.Thread(target=server.shutdown, daemon=True).start()
+-    return True
++        return {
++            "restarting": False,
++            "shutdown": False,
++            "requires_pinokio_start": True,
++            "message": "Llama GUI is not running.",
++        }
++
++    shutdown_gui_server(ctx)
++    return {
++        "restarting": False,
++        "shutdown": True,
++        "requires_pinokio_start": True,
++        "message": "Llama GUI is stopping. Start it again from Pinokio to complete the restart.",
++    }
+ 
+ 
+ def open_folder_in_file_manager(target):
+diff --git a/ui/js/manager.js b/ui/js/manager.js
+--- a/ui/js/manager.js
++++ b/ui/js/manager.js
+@@ -332,7 +332,11 @@ async function restartPythonServerAndReload(options = {}) {
+     showStatusFn("info", options.restartingMessage || "Restarting Python server...");
+ 
+     try {
+-        await fetchJson("/api/restart", { method: "POST" });
++        const result = await fetchJson("/api/restart", { method: "POST" });
++        if (result.requires_pinokio_start) {
++            showStatusFn("warning", options.manualRestartMessage || result.message || "Llama GUI is stopping. Start it again from Pinokio to complete the restart.");
++            return;
++        }
+         showStatusFn("info", options.reconnectingMessage || "Python server is restarting. Reconnecting...");
+         const ready = await waitForServerReady(30, 1000);
+         if (ready) {
+@@ -616,6 +620,7 @@ async function updateAppFromGitHub() {
+                     reconnectingMessage: "Llama GUI is restarting. Reconnecting...",
+                     successMessage: "Llama GUI restarted. Loading the updated interface...",
+                     timeoutMessage: "Llama GUI updated, but the server did not become ready in time. Try reloading manually.",
++                    manualRestartMessage: "Llama GUI updated. The server is stopping now; start it again from Pinokio to load the updated interface.",
+                     failurePrefix: "App updated, but restart failed: ",
+                 });
+                 return;

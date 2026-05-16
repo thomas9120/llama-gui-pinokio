@@ -9,6 +9,12 @@ module.exports = {
     {
       method: "shell.run",
       params: {
+        message: "node scripts/apply-lifecycle-cache-patch.js --reverse"
+      }
+    },
+    {
+      method: "shell.run",
+      params: {
         path: "app",
         message: "git pull"
       }
