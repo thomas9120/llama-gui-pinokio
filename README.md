@@ -45,7 +45,7 @@ To check whether this launcher is compatible with a local Llama GUI checkout, ru
 node scripts/check-app-compat.js path/to/LLama-GUI
 ```
 
-The checker verifies the modern backend lifecycle layout, the frontend flag-core modules, `ui/index.html` script loading, and whether `patches/pinokio-modern.patch` applies cleanly or is already applied.
+The checker verifies the modern backend lifecycle layout, the split frontend flag modules, the shared `app-data.js` module, `ui/index.html` script loading, and whether `patches/pinokio-modern.patch` applies cleanly or is already applied.
 
 ## API
 
@@ -84,4 +84,4 @@ console.log(await response.json())
 - The launcher does not duplicate `llama.cpp` install logic.
 - The Llama GUI **Install** tab is the source of truth for backend selection and binary downloads.
 - Llama GUI currently binds to fixed port `5240`; stop any existing Llama GUI process before starting this launcher.
-- Frontend-only internal refactors in Llama GUI, such as the `flag-core.js` / `config-flags-ui.js` split, should remain compatible as long as `ui/index.html` loads the scripts and `python server.py` remains the startup entrypoint.
+- Frontend-only internal refactors in Llama GUI, such as the `flag-core.js` / `config-flags-ui.js` split or the split `ui/js/flags/` modules, should remain compatible as long as `ui/index.html` loads the scripts and `python server.py` remains the startup entrypoint.

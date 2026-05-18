@@ -71,7 +71,7 @@ function reversePatch(patchPath, label) {
 }
 
 if (!fs.existsSync(appDir)) {
-  console.error("Cannot apply lifecycle/cache patch: app/ does not exist.")
+  console.error("Cannot apply Pinokio compatibility patch: app/ does not exist.")
   process.exit(1)
 }
 
