@@ -13,7 +13,7 @@ module.exports = {
           "python server.py"
         ],
         on: [{
-          event: "/(http:\\/\\/[0-9.:]+)/",
+          event: "/(http:\\/\\/(?:localhost|[0-9.]+|\\[[0-9a-fA-F:]+\\]):[0-9]+)/",
           done: true
         }]
       }
