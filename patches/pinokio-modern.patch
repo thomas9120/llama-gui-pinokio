@@ -80,7 +80,7 @@ diff --git a/backend/services/lifecycle.py b/backend/services/lifecycle.py
 diff --git a/ui/js/manager.js b/ui/js/manager.js
 --- a/ui/js/manager.js
 +++ b/ui/js/manager.js
-@@ -332,7 +332,11 @@ async function restartPythonServerAndReload(options = {}) {
+@@ -353,7 +353,11 @@ async function restartPythonServerAndReload(options = {}) {
      showStatusFn("info", options.restartingMessage || "Restarting Python server...");
  
      try {
@@ -93,7 +93,7 @@ diff --git a/ui/js/manager.js b/ui/js/manager.js
          showStatusFn("info", options.reconnectingMessage || "Python server is restarting. Reconnecting...");
          const ready = await waitForServerReady(30, 1000);
          if (ready) {
-@@ -616,6 +620,7 @@ async function updateAppFromGitHub() {
+@@ -660,6 +664,7 @@ async function updateAppFromGitHub() {
                      reconnectingMessage: "Llama GUI is restarting. Reconnecting...",
                      successMessage: "Llama GUI restarted. Loading the updated interface...",
                      timeoutMessage: "Llama GUI updated, but the server did not become ready in time. Try reloading manually.",
