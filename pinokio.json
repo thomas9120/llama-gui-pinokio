@@ -2,6 +2,7 @@
   "title": "Llama GUI",
   "description": "A lightweight local launcher and control panel for llama.cpp.",
   "icon": "icon.svg",
+  "repo": "thomas9120/llama-gui-pinokio",
   "links": [
     {
       "title": "Project",

@@ -16,13 +16,33 @@ module.exports = {
       method: "shell.run",
       params: {
         path: "app",
-        message: "git pull"
+        message: "git stash push -u -m pinokio-user-changes"
+      }
+    },
+    {
+      method: "shell.run",
+      params: {
+        path: "app",
+        message: "git pull origin main"
       }
     },
     {
       method: "script.start",
       params: {
         uri: "patch.js"
+      }
+    },
+    {
+      method: "shell.run",
+      params: {
+        message: "node scripts/check-app-compat.js"
+      }
+    },
+    {
+      method: "shell.run",
+      params: {
+        path: "app",
+        message: "git stash pop || echo 'Stash pop had conflicts. Run: cd app && git stash pop to resolve.'"
       }
     },
     {

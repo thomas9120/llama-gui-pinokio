@@ -29,8 +29,12 @@ function applyPatch(patchPath, label) {
   let result = runGit(["apply", "--check", patchPath])
   if (result.status === 0) {
     result = runGit(["apply", "--whitespace=nowarn", patchPath])
+    if (result.status !== 0) {
+      console.error(`Failed to apply ${label} patch:`)
+      printResult(result)
+      process.exit(result.status || 1)
+    }
     printResult(result)
-    if (result.status !== 0) process.exit(result.status || 1)
     console.log(`Applied ${label} patch.`)
     process.exit(0)
   }
@@ -41,6 +45,7 @@ function applyPatch(patchPath, label) {
     process.exit(0)
   }
 
+  console.error(`Failed to apply ${label} patch:`)
   printResult(result)
   process.exit(result.status || 1)
 }
@@ -54,8 +59,12 @@ function reversePatch(patchPath, label) {
   let result = runGit(["apply", "--reverse", "--check", patchPath])
   if (result.status === 0) {
     result = runGit(["apply", "--reverse", "--whitespace=nowarn", patchPath])
+    if (result.status !== 0) {
+      console.error(`Failed to revert ${label} patch:`)
+      printResult(result)
+      process.exit(result.status || 1)
+    }
     printResult(result)
-    if (result.status !== 0) process.exit(result.status || 1)
     console.log(`Reverted ${label} patch.`)
     process.exit(0)
   }
@@ -66,6 +75,7 @@ function reversePatch(patchPath, label) {
     process.exit(0)
   }
 
+  console.error(`Failed to revert ${label} patch:`)
   printResult(result)
   process.exit(result.status || 1)
 }
